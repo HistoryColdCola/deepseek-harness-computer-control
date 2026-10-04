@@ -1,0 +1,60 @@
+{
+  "name": "dsh-computer-control",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Give a DSH agent hands on this machine (macOS and Windows): screen, mouse, keyboard, apps, browser, clipboard and messaging tools, with a hard checkout/payment guard.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "native",
+    "scripts",
+    "docs",
+    "cordis.patch.yml",
+    "README.md",
+    "README.en.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "build": "sh scripts/build-helper.sh",
+    "build:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-helper.ps1",
+    "install-plugin": "sh scripts/install-local.sh",
+    "install-plugin:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-local.ps1",
+    "uninstall-plugin": "sh scripts/uninstall-local.sh",
+    "uninstall-plugin:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/uninstall-local.ps1",
+    "selftest": "node scripts/selftest.mjs",
+    "selftest:ci": "CC_SELFTEST_OFFLINE=1 node scripts/selftest.mjs",
+    "selftest:win": "CC_PLATFORM=win32 node scripts/selftest.mjs"
+  },
+  "license": "MIT",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "plugin",
+    "computer-use",
+    "macos",
+    "windows",
+    "automation",
+    "applescript",
+    "powershell",
+    "coregraphics",
+    "accessibility",
+    "cua"
+  ],
+  "os": [
+    "darwin",
+    "win32"
+  ]
+}

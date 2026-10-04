@@ -1,0 +1,11 @@
+# dsh-computer-control as a DSH profile bundle.
+#
+# Install as a real bundle (`dsh plugin --profile <profile> add <path-or-name>`)
+# and this patch inserts the plugin row; the profile's own cordis.patch.yml can
+# then override it by id, e.g.:
+#
+#   - id: computer-control
+#     disabled: true
+- insert:
+    - id: computer-control
+      name: 'dsh-computer-control'
