@@ -147,11 +147,10 @@ C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /nologo /target:exe /pla
 
 | | 状态 |
 |---|---|
-| macOS 全部功能 | ✅ 本机实机验证（截屏/鼠标/键盘/剪贴板/窗口/菜单/浏览器/微信真实发送/守卫） |
-| macOS 自检 | ✅ `node scripts/selftest.mjs` → 150/150 |
-| Windows 接线（适配器、工具 schema、能力位、动作枚举） | ✅ 静态验证 `CC_PLATFORM=win32 node scripts/selftest.mjs` → 113/113 |
-| Windows C# 助手 | ⚠️ **未在 Windows 机器上编译和运行过**；按 C# 5 / .NET Framework 4.x 语法编写并经过多轮人工复查，但不等于实测 |
-| Windows 真实点击/打字/截图 | ⚠️ 未验证 |
+| macOS / Windows 原生构建 | ✅ GitHub Actions 实际编译通过 |
+| 常驻管道 + JPEG/PNG 截图 | ✅ 两个平台原生构建机通过 |
+| JS 回归测试 | ✅ Linux/macOS/Windows 各 11/11 |
+| 用户桌面完整操作回合 | 待本机验证，见 [PERFORMANCE.md](PERFORMANCE.md) |
 
 第一次在 Windows 上使用时建议按这个顺序试：
 

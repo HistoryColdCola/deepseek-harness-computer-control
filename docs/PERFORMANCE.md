@@ -86,4 +86,18 @@ PowerShell 静态检查请用 `$env:CC_PLATFORM='win32'; $env:CC_SELFTEST_OFFLIN
 
 Run the benchmark on an authorized real desktop. It reports cold startup, warm p50/p95, payload size and whether p95 meets your budget. It includes native capture, IPC and local writes. Tool results separately report captureMs, attachmentMs and elapsedMs. **100–300ms is a capture target, not a verified guarantee; full turns also include attachment service and model latency.**
 
-Linux tests use a fixture worker and mocked platform input/capture to exercise ordering, Unicode, cancellation, crashes, policy, image metadata and coordinate mapping. They do not measure real native screenshot speed. CI builds both native helpers and checks their persistent protocol; real desktop capture and UI behavior need on-device validation.
+Linux tests use a fixture worker and mocked platform input/capture to exercise ordering, Unicode, cancellation, crashes, policy, image metadata and coordinate mapping. They do not measure real native screenshot speed. CI builds both native helpers and checks their persistent protocol and real JPEG/PNG output when screen access is granted. Full UI behavior still needs on-device validation.
+
+## CI 原生截图样本 / Native CI capture sample
+
+[验证运行 / Validation run](https://github.com/HistoryColdCola/deepseek-harness-computer-control/actions/runs/39238442687)，代码提交 `4ea4cb8`。JS 11 项测试、两个原生构建、常驻协议及实际 JPEG/PNG 文件检查均通过。
+
+| 320-edge JPEG, quality 15 | Windows runner | macOS 14 runner |
+|---|---|---|
+| First capture, helper already running | 129.8ms | 472.0ms |
+| Next 4 captures, capture + local IPC | 14.4–28.5ms | 7.5–41.8ms |
+| Encoded bytes | 7,589 | 3,104 |
+
+截图包含本地文件写入；不含助手进程启动、附件上传、模型推理和网络。这只是构建机桌面的 5 帧检查，桌面内容简单、样本少，不能代表用户电脑上的 p95。请用上面的 30 次基准在本机测量。
+
+Includes local file output; excludes helper process startup, attachment upload, inference and network. These are five smoke-test frames of simple CI desktops, not a statistically meaningful p95 result for user machines. Use the 30-sample benchmark on your own desktop.

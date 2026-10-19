@@ -163,12 +163,13 @@ dsh-computer-control/
 
 | 项目 | 状态 |
 |---|---|
-| macOS 全部功能 | 历史 v0.2： 实机验证（截屏/鼠标/键盘/剪贴板/窗口/菜单/浏览器/微信真实发送/守卫拦截） |
-| macOS 自检 | 历史 v0.2： `node scripts/selftest.mjs` → **150/150** |
-| Windows 接线（适配器、工具 schema、能力位、动作枚举、守卫） | 历史 v0.2： 静态验证 `CC_PLATFORM=win32 node scripts/selftest.mjs` → **113/113** |
-| Windows C# 助手与真实输入 | ⚠️ **未在 Windows 上编译/运行过**；按 C# 5 + .NET Framework 4.x 语法编写并经多轮人工复查 |
+| 三平台 JS 回归测试 | Linux / macOS / Windows，11/11 通过 |
+| 平台接线检查 | 两个平台在 Linux 上各 108/108；原生构建机额外检查助手 |
+| Swift / C# 原生助手 | 两个平台都编译通过，常驻管道 check / pos / screens 通过 |
+| 实际截图文件 | 两个平台的低清 JPEG / PNG 检查通过 |
+| 本机完整控制回合 | 待用户桌面验证，含 UI 响应、附件服务和模型推理 |
 
-第一次在 Windows 上使用，建议依次验证：`build-helper.ps1` → `check` 输出 JSON → `node scripts\selftest.mjs` → agent 依次试 `computer_policy environment`、`computer_screenshot`、`computer_mouse position`。
+构建机上 320 边、质量 15 的 JPEG 热运行 4 次：Windows 约 14–29ms、macOS 约 7–42ms（截图 + 本地管道，不含模型或网络）。首次截图约 130ms / 472ms，不含助手启动。短样本不代表 p95 或用户电脑性能。完整条件与本机基准命令见 [PERFORMANCE.md](docs/PERFORMANCE.md)。
 
 ---
 

@@ -52,9 +52,9 @@ drive an elevated app, run DSH elevated too.
 ### Verify
 
 ```sh
-node scripts/selftest.mjs                        # this host: static + real read-only execution -> 150/150
-CC_SELFTEST_OFFLINE=1 node scripts/selftest.mjs  # static only, headless/CI -> 116/116
-CC_PLATFORM=win32 node scripts/selftest.mjs      # validate the Windows wiring from any host -> 113/113
+node scripts/selftest.mjs                        # this host: static + real read-only execution
+CC_SELFTEST_OFFLINE=1 node scripts/selftest.mjs  # static only, headless/CI
+CC_PLATFORM=win32 node scripts/selftest.mjs      # validate the Windows wiring from any host
 ```
 
 Or ask the agent: `computer_policy` with action=`environment`.
@@ -168,13 +168,13 @@ dsh-computer-control/
 
 | Item | Status |
 |---|---|
-| macOS, all features | Historical v0.2: measured on a real machine (screenshots, mouse, keyboard, clipboard, windows, menus, browsers, a real WeChat send, guard refusals) |
-| macOS self-test | Historical v0.2: `node scripts/selftest.mjs` → **150/150** |
-| Windows wiring (adapter, tool schemas, capabilities, action enums, guard) | Historical v0.2: static `CC_PLATFORM=win32 node scripts/selftest.mjs` → **113/113** |
-| Windows C# helper and real input | ⚠️ **never compiled or run on Windows**; written for C# 5 / .NET Framework 4.x and reviewed line by line several times |
+| JS regression tests | 11/11 on Linux, macOS and Windows |
+| Adapter wiring | 108/108 per target on Linux; additional helper checks on native runners |
+| Swift / C# native helpers | Both compile; persistent check / pos / screens protocol passes |
+| Actual capture files | Low-quality JPEG and PNG checks pass on both native runners |
+| Full user-machine control turn | Needs on-device validation, including UI response, attachments and inference |
 
-Suggested first run on Windows: `build-helper.ps1` → `check` prints JSON → `node scripts\selftest.mjs` → ask the agent
-for `computer_policy environment`, then `computer_screenshot`, then `computer_mouse position`.
+Four warm 320-edge quality-15 JPEG captures on CI runners took approximately 14–29ms on Windows and 7–42ms on macOS (capture + local IPC, excluding model/network). First capture took about 130ms / 472ms, excluding helper startup. This short sample is not a p95 benchmark or a guarantee for user machines. See [PERFORMANCE.md](docs/PERFORMANCE.md).
 
 ---
 
