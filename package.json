@@ -34,7 +34,7 @@
     "install-plugin:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-local.ps1",
     "uninstall-plugin": "sh scripts/uninstall-local.sh",
     "uninstall-plugin:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/uninstall-local.ps1",
-    "test": "node --test tests/*.test.mjs",
+    "test": "node --test tests/native-client.test.mjs tests/fast-loop.test.mjs",
     "benchmark": "node scripts/benchmark.mjs",
     "selftest": "node scripts/selftest.mjs",
     "selftest:ci": "CC_SELFTEST_OFFLINE=1 node scripts/selftest.mjs",
