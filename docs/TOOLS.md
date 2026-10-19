@@ -1,17 +1,14 @@
 # 工具参考
 
-九个工具的完整说明。所有坐标单位：**macOS 是 point，Windows 是物理像素**；原点都在主显示器左上角，副屏可能是负坐标。想知道当前屏幕参数，调 `computer_policy action=environment`。
+十个工具的完整说明。所有坐标单位：**macOS 是 point，Windows 是物理像素**；原点都在主显示器左上角，副屏可能是负坐标。想知道当前屏幕参数，调 `computer_policy action=environment`。
 
 > **换算规则（最容易点错的地方）**
-> - **macOS**：Retina 截图的像素是坐标网格的 2 倍 → 点击坐标 = `图像素 ÷ scale`。
-> - **Windows**：助手是 DPI-aware 的，截图像素**就是**屏幕坐标 → **直接用图像素，不要除 scale**（`scale` 只作参考）。
->
-> 截图工具返回的 `note` 里会按当前平台写清这一条，照着做即可。
+> 两个平台统一：`screenX=frame.x+imageX*frame.width/width`，`screenY=frame.y+imageY*frame.height/height`。`width/height` 是实际附件尺寸，不能额外除 `scale`。详见 [PERFORMANCE.md](PERFORMANCE.md)。
 
 通用约定：
 
 - 所有会改动的动作（输入文字 / 剪贴板写入 / 脚本 / 打开网址 / 菜单项 / 发消息）都会先过**购物守卫**，命中支付结算词直接拒绝并说明原因。
-- 坐标不要猜：先 `computer_screenshot`，量出像素坐标后除以截图里给出的 `scale`。
+- 坐标不要猜：先 `computer_screenshot`，量出像素坐标后按返回的 `frame` 换算。
 - 失败时工具抛错，错误文本是给模型看的，通常包含下一步该怎么做。
 
 ---
@@ -27,9 +24,9 @@
 | `region` | `{x,y,width,height}` | `target=region` 时必填，单位同坐标 |
 | `window_id` | integer | `target=window` 时必填，来自 `computer_app action=windows` |
 | `attach` | boolean | 是否把图贴进上下文，默认 `true` |
-| `max_edge` | integer | 贴图最长边（像素），默认 1600，`0` 表示不缩放 |
+| `max_edge` | integer | 贴图最长边（像素），默认 640，`0` 表示不缩放 |
 
-返回：`path`（全尺寸 PNG）、`previewPath`（缩放版）、`width`/`height`（原图像素）、`scale`（屏幕缩放倍率）、`attached`、`note`（屏幕几何 + 权限提示），以及附带的图片块。
+返回：`path`（默认低清 JPEG）、`width`/`height`（实际图像像素）、`frame`（屏幕矩形）、`scale`（参考倍率）、`attached`、`note`（坐标换算）、`captureMs` / `attachmentMs` / `elapsedMs` 和图片块。参数还支持 `quality:1..100`（默认 25）、`format:jpeg|png`。
 
 ```
 computer_screenshot {target:'window', window_id:965}          # 只看某个窗口
@@ -38,7 +35,7 @@ computer_screenshot {attach:false}                            # 只要路径，�
 ```
 
 > 区域截图最省 token：只截你要点的那一块，模型看得更清楚，也不容易数错坐标。
-> 全尺寸原图永远留在 `~/.dsh/computer-control/shots/`，需要时可以再读。
+> 默认只保留低清截图；完整无损图请指定 `max_edge:0, format:"png"`。
 
 ---
 
@@ -256,8 +253,7 @@ computer_policy {action:'check', value:'立即购买'}
 
 ```
 1 computer_screenshot {target:'region', region:{...}}   # 局部截图，看清位置
-2 computer_policy {action:'environment'}                # 拿到 scale
-3 computer_mouse {action:'click', x:px/scale, y:py/scale}
+2 computer_mouse {action:'click', x:frame.x+px*frame.width/width, y:frame.y+py*frame.height/height}
 4 computer_screenshot {}                                # 验证结果
 ```
 
@@ -286,3 +282,7 @@ computer_keyboard {action:'type', text:'去结算'}         # ← 被守卫拒�
 2 computer_message {app:'微信', to:'张三', text:'...'}                 # 只定位
 3 computer_message {app:'微信', to:'张三', text:'...', result_point:{x,y}}  # 确认后发送
 ```
+
+## computer_step
+
+动作 + 截图闭环、0..8 个顺序动作、默认 80ms UI 等待，参数和示例见 [PERFORMANCE.md](PERFORMANCE.md)。

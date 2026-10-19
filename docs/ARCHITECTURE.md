@@ -26,7 +26,7 @@ export const inject = ['tools'];          // 依赖 tools 服务，没它就拒�
 
 export function apply(ctx, config = {}) {
   const adapter = selectAdapter();          // 按 process.platform 选平台适配器
-  const tools = buildTools(ctx, adapter);   // 造出 9 个工具定义
+  const tools = buildTools(ctx, adapter);   // 造出 10 个工具定义
   for (const tool of tools) ctx.tools.register(tool);
   // 再往 ~/.dsh/computer-control/mounted.json 写一条加载记录（便于排查）
 }
@@ -83,11 +83,11 @@ DSH 的工具定义是普通对象（`defineTool()` 的产物形态）。本插�
 模型要"看见"屏幕，光给路径没用（那是另一轮工具调用）。做法是走 harness 的附件服务：
 
 ```
-adapter.screen.capture()      截图并落盘 PNG（另存一份缩略图）
+adapter.screen.capture()      原生常驻服务直接生成低清 JPEG
       │
       ▼
 ctx.get('attachments')        取附件服务
-      │  saveImage({ data, mediaType:'image/png', name })
+      │  saveImage({ data, mediaType:'image/jpeg', name })
       ▼
 { type:'image', attachment:{ attachmentId, mediaType, bytes, width, height } }
       │
@@ -97,11 +97,7 @@ render() 返回 [文本块, 图片块]   ← 模型这一轮就看到了屏幕
 
 `ctx.get('attachments')` 是可选依赖：拿不到就退化成"只返回路径 + 提示"，不会让工具失败。
 
-为什么还要"缩略图"？5K 截屏原图 9MB 左右，直接塞进上下文会浪费大量 token。所以：
-
-- 原图完整尺寸永远留在 `~/.dsh/computer-control/shots/`（可回溯、可再分析）；
-- 贴给模型的是 `maxScreenshotEdge`（默认 1600）限制下的缩放版；
-- 截图结果里会写明 **scale** 和原图尺寸，模型按 `image_pixel / scale` 换算成点击坐标。
+v0.3 默认直接保存最长边 640、质量 25 的 JPEG，没有全尺寸中间 PNG。`width/height` 是实际附件尺寸，`frame` 给出截图区域的屏幕坐标和尺寸；按 `frame.x+imageX*frame.width/width` / `frame.y+imageY*frame.height/height` 换算。原生进程常驻，单管道顺序处理请求，崩溃不重放输入。详见 [PERFORMANCE.md](PERFORMANCE.md)。
 
 ---
 
@@ -229,7 +225,7 @@ CC_PLATFORM=win32 node scripts/selftest.mjs      # 在任意机器上静态校�
 
 `CC_PLATFORM=win32` 是关键：Windows 的适配器是纯 JS 构造（构造期不碰系统调用），所以可以在 macOS 上把它造出来，验证
 
-- 9 个工具都能注册、schema 都在 harness 支持子集内；
+- 10 个工具都能注册、schema 都在 harness 支持子集内；
 - 适配器成员齐全、能力位与实现一致（例如 `capabilities.menu === false` 时 `apps.menu` 必须不存在、工具枚举里必须没有 `menu`）；
 - 购物守卫该拦的拦、该放的放。
 
@@ -241,7 +237,7 @@ CC_PLATFORM=win32 node scripts/selftest.mjs      # 在任意机器上静态校�
 
 ```
 lib/index.js            插件入口：选平台、注册工具、写加载记录
-lib/tools.js            9 个工具：schema / 执行 / 渲染（平台无关）
+lib/tools.js            10 个工具：schema / 执行 / 渲染（平台无关）
 lib/message.js          两段式发消息流程（平台无关）
 lib/policy.js           购物守卫（纯函数）
 lib/runtime.js          配置读写、子进程封装、UTF-8 环境

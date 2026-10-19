@@ -1,6 +1,6 @@
 {
   "name": "dsh-computer-control",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Give a DSH agent hands on this machine (macOS and Windows): screen, mouse, keyboard, apps, browser, clipboard and messaging tools, with a hard checkout/payment guard.",
   "type": "module",
@@ -34,6 +34,8 @@
     "install-plugin:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-local.ps1",
     "uninstall-plugin": "sh scripts/uninstall-local.sh",
     "uninstall-plugin:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/uninstall-local.ps1",
+    "test": "node --test tests/*.test.mjs",
+    "benchmark": "node scripts/benchmark.mjs",
     "selftest": "node scripts/selftest.mjs",
     "selftest:ci": "CC_SELFTEST_OFFLINE=1 node scripts/selftest.mjs",
     "selftest:win": "CC_PLATFORM=win32 node scripts/selftest.mjs"

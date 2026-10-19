@@ -1,5 +1,7 @@
 # dsh-computer-control
 
+> **v0.3 low-latency control**: persistent Swift/C# helpers, small JPEGs and `computer_step` action+capture loop. Fast capture requires macOS 14+. Reinstall to rebuild. See [performance settings and benchmarks](docs/PERFORMANCE.md).
+
 English | [中文](README.md)
 
 Give a DSH agent hands on this machine: see the screen, move the mouse, type, launch apps, drive a browser, send chat
@@ -24,7 +26,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install-local.ps1
 
 The script copies the plugin into the profile's `plugins/computer-control/`, compiles the native helper, and appends
 the loader row to `cordis.patch.yml` (backed up first, and HMR watching is switched on so later code edits reload
-live). Restart DeepSeek Harness (or let HMR apply it) and nine `computer_*` tools appear in the session.
+live). Restart DeepSeek Harness (or let HMR apply it) and ten `computer_*` tools appear in the session.
 
 ### macOS needs permissions (once)
 
@@ -59,10 +61,11 @@ Or ask the agent: `computer_policy` with action=`environment`.
 
 ---
 
-## The nine tools
+## The ten tools
 
 | Tool | What it does |
 |---|---|
+| `computer_step` | Run known actions in order and return a fresh low-quality screenshot |
 | `computer_screenshot` | Capture a screen, display, region or window and **attach the image to the conversation** |
 | `computer_mouse` | Move, click, double-click, right/middle click, drag, scroll, read the pointer back |
 | `computer_keyboard` | Type any text (CJK/emoji injected directly, no IME), press named keys and chords |
@@ -114,9 +117,11 @@ Details in [docs/PLATFORMS.md](docs/PLATFORMS.md).
 {
   "allowCheckout": false,
   "allowPayment": false,
-  "maxScreenshotEdge": 1600,
-  "typeChunkDelayMs": 9,
-  "defaultWaitMs": 700,
+  "maxScreenshotEdge": 640,
+  "screenshotQuality": 25,
+  "screenshotFormat": "jpeg",
+  "typeChunkDelayMs": 0,
+  "defaultWaitMs": 80,
   "extraBlockedPatterns": [],
   "messageApps": {
     "WeChat": { "searchChord": "cmd+f", "sendKey": "return", "settleMs": 900 }
@@ -141,7 +146,7 @@ Runtime state lives in `~/.dsh/computer-control/` (`config.json`, `shots/`, `mou
 dsh-computer-control/
 ├── lib/
 │   ├── index.js            plugin entry: pick platform, register tools
-│   ├── tools.js            the nine tools (platform neutral)
+│   ├── tools.js            the ten tools (platform neutral)
 │   ├── message.js          two-phase messaging (platform neutral)
 │   ├── policy.js           purchase guard (pure functions)
 │   ├── runtime.js          config / subprocess / UTF-8 environment
@@ -163,9 +168,9 @@ dsh-computer-control/
 
 | Item | Status |
 |---|---|
-| macOS, all features | ✅ measured on a real machine (screenshots, mouse, keyboard, clipboard, windows, menus, browsers, a real WeChat send, guard refusals) |
-| macOS self-test | ✅ `node scripts/selftest.mjs` → **150/150** |
-| Windows wiring (adapter, tool schemas, capabilities, action enums, guard) | ✅ static `CC_PLATFORM=win32 node scripts/selftest.mjs` → **113/113** |
+| macOS, all features | Historical v0.2: measured on a real machine (screenshots, mouse, keyboard, clipboard, windows, menus, browsers, a real WeChat send, guard refusals) |
+| macOS self-test | Historical v0.2: `node scripts/selftest.mjs` → **150/150** |
+| Windows wiring (adapter, tool schemas, capabilities, action enums, guard) | Historical v0.2: static `CC_PLATFORM=win32 node scripts/selftest.mjs` → **113/113** |
 | Windows C# helper and real input | ⚠️ **never compiled or run on Windows**; written for C# 5 / .NET Framework 4.x and reviewed line by line several times |
 
 Suggested first run on Windows: `build-helper.ps1` → `check` prints JSON → `node scripts\selftest.mjs` → ask the agent

@@ -6,7 +6,7 @@
 
 ## 0. 装好之后先做三件事
 
-1. **确认插件加载**：当前会话的工具列表里应该出现 9 个 `computer_*` 工具；没有就重启 App。
+1. **确认插件加载**：当前会话的工具列表里应该出现 10 个 `computer_*` 工具；没有就重启 App。
    加载记录写在 `~/.dsh/computer-control/mounted.json`（Windows：`%USERPROFILE%\.dsh\computer-control\mounted.json`）。
 2. **确认权限**：让 agent 执行 `computer_policy` action=`environment`。
    - macOS 应看到 `accessibility: granted`、`screen recording: granted`；缺了就按 [PLATFORMS.md](PLATFORMS.md#3-权限) 授权。
