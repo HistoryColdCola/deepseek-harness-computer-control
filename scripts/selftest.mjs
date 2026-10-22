@@ -98,7 +98,7 @@ if (NATIVE) {
 const names = registered.map((tool) => tool.name);
 const expected = [
   'computer_screenshot', 'computer_mouse', 'computer_keyboard', 'computer_clipboard', 'computer_app',
-  'computer_message', 'computer_browser', 'computer_ui', 'computer_policy',
+  'computer_message', 'computer_browser', 'computer_ui', 'computer_policy', 'computer_step',
 ];
 check(`registered ${expected.length} tools`, registered.length === expected.length, `got ${registered.length}: ${names.join(', ')}`);
 check('tool names match', expected.every((tool) => names.includes(tool)), names.join(', '));

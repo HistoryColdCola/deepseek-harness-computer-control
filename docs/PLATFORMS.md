@@ -11,7 +11,7 @@
 | 原生助手 | `bin/dsh-input`（`native/DshInput.swift`） | `bin/dsh-input.exe`（`native/DshInput.cs`） |
 | 编译方式 | `swiftc`（Xcode Command Line Tools 自带） | `csc.exe`（.NET Framework 自带，Windows 10/11 默认存在） |
 | 输入事件 | CoreGraphics `CGEventPost` | Win32 `SendInput` |
-| 截图 | `/usr/sbin/screencapture` + `sips` 缩放 | 助手内 GDI+ `CopyFromScreen` / `PrintWindow` |
+| 截图 | Swift ScreenCaptureKit 原生缩图 + JPEG | 助手内 GDI+ `CopyFromScreen` / `PrintWindow` |
 | 剪贴板 | `pbpaste` / `pbcopy` | 助手内 Win32 剪贴板 API |
 | 窗口枚举 | `CGWindowListCopyWindowInfo` | `EnumWindows` + DWM 判断是否被隐藏 |
 | 激活/关闭应用 | `open -a` + `System Events` | 助手内 `SetForegroundWindow` / `WM_CLOSE` |
@@ -21,14 +21,9 @@
 | 标签页枚举 | ✅ 浏览器 AppleScript 字典 | ⚠️ 只能拿当前标签（窗口标题） |
 | 页面 JS | ✅ 需开发者菜单开关 | ❌ 需 DevTools Protocol |
 
-坐标系两边一致：**原点在主显示器左上角**，副屏可能为负坐标；单位是 macOS point / Windows 物理像素。但**换算规则不同**：
+坐标原点在主显示器左上角，副屏可以为负；macOS 单位 point，Windows 单位物理像素。两个平台都按截图返回的 frame 换算：
 
-| | 截图像素 → 点击坐标 |
-|---|---|
-| macOS | 除以 `scale`（Retina 是 2） |
-| Windows | 直接用，**不要**除（助手已声明 DPI-aware，像素即坐标） |
-
-这条差异写在截图工具返回的 `note` 里，也写在工具说明里，属于"搞错了每次都点偏"的坑。
+`screenX=frame.x+imageX*frame.width/width`，`screenY=frame.y+imageY*frame.height/height`。不要额外除 scale。快速截图需要 macOS 14+。详见 [PERFORMANCE.md](PERFORMANCE.md)。
 
 ---
 
@@ -152,11 +147,10 @@ C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /nologo /target:exe /pla
 
 | | 状态 |
 |---|---|
-| macOS 全部功能 | ✅ 本机实机验证（截屏/鼠标/键盘/剪贴板/窗口/菜单/浏览器/微信真实发送/守卫） |
-| macOS 自检 | ✅ `node scripts/selftest.mjs` → 150/150 |
-| Windows 接线（适配器、工具 schema、能力位、动作枚举） | ✅ 静态验证 `CC_PLATFORM=win32 node scripts/selftest.mjs` → 113/113 |
-| Windows C# 助手 | ⚠️ **未在 Windows 机器上编译和运行过**；按 C# 5 / .NET Framework 4.x 语法编写并经过多轮人工复查，但不等于实测 |
-| Windows 真实点击/打字/截图 | ⚠️ 未验证 |
+| macOS / Windows 原生构建 | ✅ GitHub Actions 实际编译通过 |
+| 常驻管道 + JPEG/PNG 截图 | ✅ 两个平台原生构建机通过 |
+| JS 回归测试 | ✅ Linux/macOS/Windows 各 11/11 |
+| 用户桌面完整操作回合 | 待本机验证，见 [PERFORMANCE.md](PERFORMANCE.md) |
 
 第一次在 Windows 上使用时建议按这个顺序试：
 

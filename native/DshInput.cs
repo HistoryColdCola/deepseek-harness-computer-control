@@ -1515,6 +1515,7 @@ internal static class DshInput
 
     static void CommandScreenshot(string[] args)
     {
+        Stopwatch clock = Stopwatch.StartNew();
         string target = FlagValue(args, "--target");
         if (target == null) target = "screen";
         target = target.Trim().ToLowerInvariant();
@@ -1584,16 +1585,38 @@ internal static class DshInput
         using (Bitmap bitmap = Capture(rect, windowHandle))
         {
             EnsureDirectory(outPath);
-            bitmap.Save(outPath, ImageFormat.Png);
-            width = bitmap.Width;
-            height = bitmap.Height;
+            if (outPath.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)) {
+                int quality = ParseInt(FlagValue(args, "--quality") ?? "25", "quality");
+                if (quality < 1 || quality > 100) throw Failure("quality must be 1..100");
+                double ratio = maxEdge <= 0 ? 1 : Math.Min(1, (double)maxEdge / Math.Max(bitmap.Width, bitmap.Height));
+                width = Math.Max(1, (int)Math.Round(bitmap.Width * ratio));
+                height = Math.Max(1, (int)Math.Round(bitmap.Height * ratio));
+                using (Bitmap small = new Bitmap(width, height, PixelFormat.Format24bppRgb)) {
+                    using (Graphics g = Graphics.FromImage(small)) {
+                        g.InterpolationMode = InterpolationMode.Low;
+                        g.DrawImage(bitmap, new Rectangle(0, 0, width, height));
+                    }
+                    ImageCodecInfo codec = Array.Find(ImageCodecInfo.GetImageEncoders(), delegate(ImageCodecInfo c) { return c.MimeType == "image/jpeg"; });
+                    using (EncoderParameters parameters = new EncoderParameters(1)) {
+                        parameters.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, (long)quality);
+                        small.Save(outPath, codec, parameters);
+                    }
+                }
+            } else {
+                WritePreview(bitmap, outPath, maxEdge);
+                double ratio = maxEdge <= 0 ? 1 : Math.Min(1, (double)maxEdge / Math.Max(bitmap.Width, bitmap.Height));
+                width = Math.Max(1, (int)Math.Round(bitmap.Width * ratio));
+                height = Math.Max(1, (int)Math.Round(bitmap.Height * ratio));
+            }
             if (previewPath != null && !SamePath(outPath, previewPath)) WritePreview(bitmap, previewPath, maxEdge);
         }
 
         Emit("{\"path\":" + Q(Path.GetFullPath(outPath)) +
             ",\"width\":" + Num(width) +
             ",\"height\":" + Num(height) +
-            ",\"frame\":{\"x\":" + Num(rect.Left) + ",\"y\":" + Num(rect.Top) + "}}");
+            ",\"scale\":1,\"captureMs\":" + Num(clock.Elapsed.TotalMilliseconds) +
+            ",\"frame\":{\"x\":" + Num(rect.Left) + ",\"y\":" + Num(rect.Top) +
+            ",\"width\":" + Num(rect.Width) + ",\"height\":" + Num(rect.Height) + "}}");
     }
 
     // ------------------------------------------------------------------ main
@@ -1622,6 +1645,32 @@ internal static class DshInput
             string[] rest = new string[args.Length - 1];
             Array.Copy(args, 1, rest, 0, rest.Length);
 
+            if (command == "serve") {
+                string line;
+                while ((line = Console.ReadLine()) != null) {
+                    try {
+                        string[] encoded = line.Split('\t');
+                        string[] decoded = Array.ConvertAll(encoded, DecodeBase64);
+                        if (decoded.Length == 0) throw Failure("empty request");
+                        string[] tail = new string[decoded.Length - 1];
+                        Array.Copy(decoded, 1, tail, 0, tail.Length);
+                        Dispatch(decoded[0], tail);
+                    } catch (Exception error) {
+                        Emit("{\"error\":" + Q(Describe(error)) + "}");
+                    }
+                }
+            } else Dispatch(command, rest);
+            return 0;
+        }
+        catch (Exception error)
+        {
+            Console.Error.WriteLine(Describe(error));
+            return 1;
+        }
+    }
+
+    static void Dispatch(string command, string[] rest)
+    {
             switch (command)
             {
                 case "check":
@@ -1682,15 +1731,8 @@ internal static class DshInput
                     CommandNotify(rest);
                     break;
                 default:
-                    throw Failure("unknown command: " + args[0]);
+                    throw Failure("unknown command: " + command);
             }
-            return 0;
-        }
-        catch (Exception error)
-        {
-            Console.Error.WriteLine(Describe(error));
-            return 1;
-        }
     }
 
     static void CommandClipboardSet(string[] args)

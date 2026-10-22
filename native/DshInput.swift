@@ -13,6 +13,9 @@ import Foundation
 import CoreGraphics
 import AppKit
 import ApplicationServices
+import ScreenCaptureKit
+import ImageIO
+import UniformTypeIdentifiers
 
 // MARK: - small helpers
 
@@ -23,6 +26,7 @@ func emit(_ object: [String: Any]) {
         exit(1)
     }
     print(text)
+    fflush(stdout)
 }
 
 func fail(_ message: String) -> Never {
@@ -257,13 +261,97 @@ func screenList() -> [[String: Any]] {
     return out
 }
 
+// MARK: - fast screenshot (ScreenCaptureKit scales before JPEG encoding)
+
+@available(macOS 14.0, *)
+var cachedContent: (date: Date, value: SCShareableContent)?
+
+@available(macOS 14.0, *)
+func captureScreenshot() {
+    let started = ProcessInfo.processInfo.systemUptime
+    guard let path = flagValue("--out") else { fail("screenshot needs --out") }
+    let edge = Int(flagValue("--max-edge") ?? "640") ?? -1
+    let quality = Double(flagValue("--quality") ?? "25") ?? -1
+    guard edge >= 0 && edge <= 16384, quality >= 1 && quality <= 100 else { fail("invalid screenshot edge/quality") }
+    let content: SCShareableContent
+    if (flagValue("--target") ?? "screen") != "window", let cached = cachedContent, Date().timeIntervalSince(cached.date) < 2 {
+        content = cached.value
+    } else {
+        let ready = DispatchSemaphore(value: 0)
+        var result: SCShareableContent?
+        var failure: Error?
+        SCShareableContent.getExcludingDesktopWindows(false, onScreenWindowsOnly: true) { value, error in
+            result = value; failure = error; ready.signal()
+        }
+        guard ready.wait(timeout: .now() + 10) == .success else { fail("screen enumeration timed out") }
+        guard let value = result else { fail("screen access: \(failure?.localizedDescription ?? "denied")") }
+        content = value
+        cachedContent = (Date(), value)
+    }
+    let filter: SCContentFilter
+    let frame: CGRect
+    let config = SCStreamConfiguration()
+    config.showsCursor = false
+    let target = flagValue("--target") ?? "screen"
+    if target == "window" {
+        guard let id = UInt32(flagValue("--window") ?? ""),
+              let window = content.windows.first(where: { $0.windowID == id }) else { fail("window not found; refresh window list") }
+        filter = SCContentFilter(desktopIndependentWindow: window)
+        frame = window.frame
+        config.ignoreShadowsSingleWindow = true
+    } else {
+        let displays = content.displays.sorted {
+            if $0.displayID == $1.displayID { return false }
+            if $0.displayID == CGMainDisplayID() { return true }
+            if $1.displayID == CGMainDisplayID() { return false }
+            return $0.displayID < $1.displayID
+        }
+        if target == "region" {
+            let values = (flagValue("--region") ?? "").split(separator: ",").compactMap { Double($0) }
+            guard values.count == 4, values.allSatisfy({ $0.isFinite }), values[2] > 0, values[3] > 0 else { fail("invalid --region") }
+            frame = CGRect(x: values[0], y: values[1], width: values[2], height: values[3])
+            guard let display = displays.first(where: { $0.frame.contains(frame) }) else { fail("region must fit within one display") }
+            filter = SCContentFilter(display: display, excludingWindows: [])
+            config.sourceRect = CGRect(x: frame.minX - display.frame.minX, y: frame.minY - display.frame.minY,
+                                       width: frame.width, height: frame.height)
+        } else {
+            guard target == "screen" else { fail("unknown screenshot target") }
+            let index = (Int(flagValue("--display") ?? "1") ?? 0) - 1
+            guard displays.indices.contains(index) else { fail("display out of range") }
+            let display = displays[index]
+            filter = SCContentFilter(display: display, excludingWindows: [])
+            frame = display.frame
+        }
+    }
+    // pointPixelScale belongs to the chosen filter, so Retina and mixed DPI work.
+    let scale = Double(filter.pointPixelScale)
+    let fullWidth = max(1, Int((frame.width * scale).rounded()))
+    let fullHeight = max(1, Int((frame.height * scale).rounded()))
+    guard fullWidth <= 32768 && fullHeight <= 32768 else { fail("capture too large") }
+    let ratio = edge == 0 ? 1 : min(1, Double(edge) / Double(max(fullWidth, fullHeight)))
+    config.width = max(1, Int((Double(fullWidth) * ratio).rounded()))
+    config.height = max(1, Int((Double(fullHeight) * ratio).rounded()))
+    let ready = DispatchSemaphore(value: 0)
+    var captured: CGImage?
+    var failure: Error?
+    SCScreenshotManager.captureImage(contentFilter: filter, configuration: config) { image, error in
+        captured = image; failure = error; ready.signal()
+    }
+    guard ready.wait(timeout: .now() + 10) == .success else { fail("capture timed out") }
+    guard let image = captured else { fail("capture: \(failure?.localizedDescription ?? "failed")") }
+    let png = path.lowercased().hasSuffix(".png")
+    guard let destination = CGImageDestinationCreateWithURL(URL(fileURLWithPath: path) as CFURL,
+          (png ? UTType.png.identifier : UTType.jpeg.identifier) as CFString, 1, nil) else { fail("cannot write screenshot") }
+    CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: quality / 100] as CFDictionary)
+    guard CGImageDestinationFinalize(destination) else { fail("image encoding failed") }
+    emit(["path": path, "width": image.width, "height": image.height, "scale": scale,
+          "frame": ["x": frame.minX, "y": frame.minY, "width": frame.width, "height": frame.height],
+          "captureMs": (ProcessInfo.processInfo.systemUptime - started) * 1000])
+}
+
 // MARK: - argument parsing
 
-var arguments = Array(CommandLine.arguments.dropFirst())
-guard let command = arguments.first?.lowercased() else {
-    fail("usage: dsh-input <check|screens|windows|pos|move|click|drag|scroll|type|key|chord> [args]")
-}
-arguments.removeFirst()
+var arguments: [String] = []
 
 func flagValue(_ name: String) -> String? {
     if let index = arguments.firstIndex(of: name), index + 1 < arguments.count {
@@ -288,7 +376,12 @@ func positional() -> [String] {
     return out
 }
 
+func execute(_ command: String) {
 switch command {
+case "screenshot":
+    if #available(macOS 14.0, *) { captureScreenshot() }
+    else { fail("fast screenshot requires macOS 14 or later") }
+
 case "request":
     // Ask macOS for the two TCC grants this helper needs. The dialogs name the
     // responsible application; the user approves them once in System Settings.
@@ -425,4 +518,24 @@ case "chord":
 
 default:
     fail("unknown command: \(command)")
+}
+
+}
+
+let cli = Array(CommandLine.arguments.dropFirst())
+if cli.first == "serve" {
+    while let line = readLine() {
+        autoreleasepool {
+            let decoded = line.split(separator: "\t", omittingEmptySubsequences: false).map {
+                Data(base64Encoded: String($0)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
+            }
+            guard let command = decoded.first, command != "serve" else { fail("invalid native request") }
+            arguments = Array(decoded.dropFirst())
+            execute(command)
+        }
+    }
+} else {
+    guard let command = cli.first else { fail("usage: dsh-input <command> [args]") }
+    arguments = Array(cli.dropFirst())
+    execute(command.lowercased())
 }

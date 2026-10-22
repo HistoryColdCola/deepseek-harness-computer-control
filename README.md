@@ -1,5 +1,7 @@
 # dsh-computer-control
 
+> **v0.3 低延迟控制**：常驻 Swift/C# 助手、低清 JPEG、`computer_step` 动作+截图闭环。快速截图需 macOS 14+；升级必须重装编译。配置、模型提示和实测命令见 [性能说明](docs/PERFORMANCE.md)。
+
 [English](README.en.md) | 中文
 
 给 DSH 里的 agent 装上"手"：看屏幕、动鼠标、敲键盘、开关软件、操作浏览器、发消息。
@@ -21,7 +23,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install-local.ps1
 
 脚本会：复制插件到 profile 的 `plugins/computer-control/`、编译原生助手、往 `cordis.patch.yml` 追加加载配置（改前自动备份，并顺带打开 HMR 监听，之后改代码不用重启）。
 
-装完**重启 DeepSeek Harness**（或等 HMR 生效），会话里就会出现 9 个 `computer_*` 工具。
+装完**重启 DeepSeek Harness**（或等 HMR 生效），会话里就会出现 10 个 `computer_*` 工具。
 
 ### macOS 需要授权（一次）
 
@@ -54,10 +56,11 @@ CC_PLATFORM=win32 node scripts/selftest.mjs      # 在任意机器上静态校�
 
 ---
 
-## 九个工具
+## 十个工具
 
 | 工具 | 能干什么 |
 |---|---|
+| `computer_step` | 按顺序执行少量动作，立即返回低清截图 |
 | `computer_screenshot` | 截全屏/指定显示器/区域/指定窗口，把图**贴进对话**让模型真看见 |
 | `computer_mouse` | 移动、单击/双击/右键/中键、拖拽、滚轮、读回坐标 |
 | `computer_keyboard` | 输入任意文字（中文/emoji 直插，不走输入法）、按单键、按组合键 |
@@ -77,7 +80,7 @@ CC_PLATFORM=win32 node scripts/selftest.mjs      # 在任意机器上静态校�
 | 文档 | 内容 |
 |---|---|
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 架构与实现原理（插件加载、工具注册、平台适配层、原生助手、截图贴图、两段式消息、守卫位置） |
-| [docs/TOOLS.md](docs/TOOLS.md) | 9 个工具完整参考 + 常用套路 |
+| [docs/TOOLS.md](docs/TOOLS.md) | 10 个工具完整参考 + 常用套路 |
 | [docs/PLATFORMS.md](docs/PLATFORMS.md) | macOS / Windows 逐项对照：实现机制、权限、能力矩阵、各自的坑 |
 | [docs/SAFETY.md](docs/SAFETY.md) | 购物守卫拦什么、为什么、边界在哪 |
 | [docs/USAGE.md](docs/USAGE.md) | 使用教程：8 个实操场景 |
@@ -109,9 +112,11 @@ CC_PLATFORM=win32 node scripts/selftest.mjs      # 在任意机器上静态校�
 {
   "allowCheckout": false,
   "allowPayment": false,
-  "maxScreenshotEdge": 1600,
-  "typeChunkDelayMs": 9,
-  "defaultWaitMs": 700,
+  "maxScreenshotEdge": 640,
+  "screenshotQuality": 25,
+  "screenshotFormat": "jpeg",
+  "typeChunkDelayMs": 0,
+  "defaultWaitMs": 80,
   "extraBlockedPatterns": [],
   "messageApps": {
     "WeChat": { "searchChord": "cmd+f", "sendKey": "return", "settleMs": 900 }
@@ -136,7 +141,7 @@ Windows 上把 `messageApps` 里的 `cmd+f` 换成 `ctrl+f`。
 dsh-computer-control/
 ├── lib/
 │   ├── index.js            插件入口：选平台、注册工具
-│   ├── tools.js            9 个工具（平台无关）
+│   ├── tools.js            10 个工具（平台无关）
 │   ├── message.js          两段式发消息（平台无关）
 │   ├── policy.js           购物守卫（纯函数）
 │   ├── runtime.js          配置 / 子进程 / UTF-8 环境
@@ -158,12 +163,13 @@ dsh-computer-control/
 
 | 项目 | 状态 |
 |---|---|
-| macOS 全部功能 | ✅ 实机验证（截屏/鼠标/键盘/剪贴板/窗口/菜单/浏览器/微信真实发送/守卫拦截） |
-| macOS 自检 | ✅ `node scripts/selftest.mjs` → **150/150** |
-| Windows 接线（适配器、工具 schema、能力位、动作枚举、守卫） | ✅ 静态验证 `CC_PLATFORM=win32 node scripts/selftest.mjs` → **113/113** |
-| Windows C# 助手与真实输入 | ⚠️ **未在 Windows 上编译/运行过**；按 C# 5 + .NET Framework 4.x 语法编写并经多轮人工复查 |
+| 三平台 JS 回归测试 | Linux / macOS / Windows，11/11 通过 |
+| 平台接线检查 | 两个平台在 Linux 上各 108/108；原生构建机额外检查助手 |
+| Swift / C# 原生助手 | 两个平台都编译通过，常驻管道 check / pos / screens 通过 |
+| 实际截图文件 | 两个平台的低清 JPEG / PNG 检查通过 |
+| 本机完整控制回合 | 待用户桌面验证，含 UI 响应、附件服务和模型推理 |
 
-第一次在 Windows 上使用，建议依次验证：`build-helper.ps1` → `check` 输出 JSON → `node scripts\selftest.mjs` → agent 依次试 `computer_policy environment`、`computer_screenshot`、`computer_mouse position`。
+构建机上 320 边、质量 15 的 JPEG 热运行 4 次：Windows 约 14–29ms、macOS 约 7–42ms（截图 + 本地管道，不含模型或网络）。首次截图约 130ms / 472ms，不含助手启动。短样本不代表 p95 或用户电脑性能。完整条件与本机基准命令见 [PERFORMANCE.md](docs/PERFORMANCE.md)。
 
 ---
 
